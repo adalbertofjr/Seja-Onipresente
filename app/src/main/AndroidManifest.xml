@@ -28,6 +28,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+
         <!--The manifest entry for our MainActivity. Each Activity requires a manifest entry-->
         <activity
             android:name=".MainActivity"

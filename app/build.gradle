@@ -28,6 +28,7 @@ dependencies {
     implementation "com.android.support:preference-v7:$androidSupportVersion"
     implementation 'com.android.support.constraint:constraint-layout:1.1.0-beta4'
     implementation 'com.firebase:firebase-jobdispatcher:0.7.0'
+    implementation 'com.google.android.gms:play-services-wearable:11.8.0'
 
 
     // Instrumentation dependencies use androidTestCompile
