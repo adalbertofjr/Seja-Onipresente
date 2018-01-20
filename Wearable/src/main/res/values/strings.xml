@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Sunshine Wear</string>
+    <string name="hello_world">Sunshine Hello World!!!</string>
+    <string name="title_activity_main">Sunshinee</string>
+
+    <string name="digital_name">Sunshine Digital Wear</string>
+    <string name="digital_am">AM</string>
+    <string name="digital_pm">PM</string>
 </resources>

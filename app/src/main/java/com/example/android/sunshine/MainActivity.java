@@ -19,7 +19,6 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
@@ -36,12 +35,7 @@ import android.widget.ProgressBar;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.data.WeatherContract;
 import com.example.android.sunshine.sync.SunshineSyncUtils;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
-import com.google.android.gms.wearable.DataClient;
-import com.google.android.gms.wearable.DataEvent;
-import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
@@ -49,7 +43,7 @@ import com.google.android.gms.wearable.Wearable;
 
 public class MainActivity extends AppCompatActivity implements
         LoaderManager.LoaderCallbacks<Cursor>,
-        ForecastAdapter.ForecastAdapterOnClickHandler, DataClient.OnDataChangedListener {
+        ForecastAdapter.ForecastAdapterOnClickHandler{
 
     private final String TAG = MainActivity.class.getSimpleName();
 
@@ -169,17 +163,11 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     protected void onResume() {
         super.onResume();
-
-        // Instantiates clients without member variables, as clients are inexpensive to create and
-        // won't lose their listeners. (They are cached and shared between GoogleApi instances.)
-        Wearable.getDataClient(this).addListener(this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-
-        Wearable.getDataClient(this).removeListener(this);
     }
 
     /**
@@ -291,10 +279,11 @@ public class MainActivity extends AppCompatActivity implements
      */
     @Override
     public void onClick(long date) {
-//        Intent weatherDetailIntent = new Intent(MainActivity.this, DetailActivity.class);
-//        Uri uriForDateClicked = WeatherContract.WeatherEntry.buildWeatherUriWithDate(date);
-//        weatherDetailIntent.setData(uriForDateClicked);
-//        startActivity(weatherDetailIntent);
+        Intent weatherDetailIntent = new Intent(MainActivity.this, DetailActivity.class);
+        Uri uriForDateClicked = WeatherContract.WeatherEntry.buildWeatherUriWithDate(date);
+        weatherDetailIntent.setData(uriForDateClicked);
+        startActivity(weatherDetailIntent);
+
         sendData();
     }
 
@@ -368,23 +357,6 @@ public class MainActivity extends AppCompatActivity implements
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public void onDataChanged(@NonNull DataEventBuffer dataEvents) {
-        Log.i(TAG, "onDataChanged: " + dataEvents);
-
-        for (DataEvent event : dataEvents) {
-            if (event.getType() == DataEvent.TYPE_CHANGED) {
-                Log.i(TAG, "TYPE_CHANGED: " + event.getDataItem().toString());
-//                mDataItemListAdapter.add(
-//                        new Event("DataItem Changed", event.getDataItem().toString()));
-            } else if (event.getType() == DataEvent.TYPE_DELETED) {
-                Log.i(TAG, "TYPE_DELETED: " + event.getDataItem().toString());
-//                mDataItemListAdapter.add(
-//                        new Event("DataItem Deleted", event.getDataItem().toString()));
-            }
-        }
-
-    }
 
     private static final String SUNSHINE_PATH = "/sunshine";
     private static final String IMAGE_PATH = "/image";
@@ -392,58 +364,17 @@ public class MainActivity extends AppCompatActivity implements
     private static final String MIN_KEY = "min";
 
     public void sendData() {
-        new DataItemSend().run();
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SUNSHINE_PATH);
+        putDataMapRequest.getDataMap().putInt(MAX_KEY, 25);
+        putDataMapRequest.getDataMap().putInt(MIN_KEY, 16);
+
+        PutDataRequest request = putDataMapRequest.asPutDataRequest();
+        request.setUrgent();
+
+        Log.i(TAG, "Generating DataItem: " + request);
+
+        Task<DataItem> dataItemTask =
+                Wearable.getDataClient(getApplicationContext()).putDataItem(request);
     }
 
-    /**
-     * Generates a DataItem based on an incrementing count.
-     */
-    private class DataItemSend implements Runnable {
-
-        @Override
-        public void run() {
-            Log.i(TAG, "sendData()");
-
-            PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SUNSHINE_PATH);
-            putDataMapRequest.getDataMap().putString(MAX_KEY, "25º");
-            putDataMapRequest.getDataMap().putString(MIN_KEY, "16º");
-
-            PutDataRequest request = putDataMapRequest.asPutDataRequest();
-            request.setUrgent();
-
-            Log.i(TAG, "Generating DataItem: " + request);
-
-            Task<DataItem> dataItemTask =
-                    Wearable.getDataClient(getApplicationContext()).putDataItem(request);
-
-            dataItemTask.addOnSuccessListener(new OnSuccessListener<DataItem>() {
-                @Override
-                public void onSuccess(DataItem dataItem) {
-                    Log.i(TAG, "Sending sunshine data was successful: " + dataItem);
-                }
-            });
-
-            dataItemTask.addOnFailureListener(new OnFailureListener() {
-                @Override
-                public void onFailure(@NonNull Exception e) {
-                    Log.i(TAG, "Sending failure to sunshine data was successful: " + e.getMessage());
-                }
-            });
-
-
-//            try {
-//                // Block on a task and get the result synchronously (because this is on a background
-//                // thread).
-//                DataItem dataItem = Tasks.await(dataItemTask);
-//
-//                LOGD(TAG, "DataItem saved: " + dataItem);
-//
-//            } catch (ExecutionException exception) {
-//                Log.e(TAG, "Task failed: " + exception);
-//
-//            } catch (InterruptedException exception) {
-//                Log.e(TAG, "Interrupt occurred: " + exception);
-//            }
-        }
-    }
 }
