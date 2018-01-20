@@ -16,15 +16,19 @@
 
 package com.example.android.sunshine.watchface;
 
+import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -39,15 +43,12 @@ import android.view.WindowInsets;
 
 import com.example.android.sunshine.R;
 import com.example.android.sunshine.util.SunshineWatchFaceUtil;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataClient;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
-import com.google.android.gms.wearable.Wearable;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -92,8 +93,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         return new Engine();
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener,
-            GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+    private class Engine extends CanvasWatchFaceService.Engine implements DataClient.OnDataChangedListener {
         static final String COLON_STRING = ":";
 
         /**
@@ -121,9 +121,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             public void handleMessage(Message message) {
                 switch (message.what) {
                     case MSG_UPDATE_TIME:
-//                        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-//                            Log.v(TAG, "updating time");
-//                        }
+                        Log.v(TAG, "updating time");
                         invalidate();
                         if (shouldTimerBeRunning()) {
                             long timeMs = System.currentTimeMillis();
@@ -135,12 +133,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 }
             }
         };
-
-        GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(SunshineWatchFaceService.this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(Wearable.API)
-                .build();
 
         /**
          * Handles time zone and locale changes.
@@ -167,7 +159,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         Paint mSecondPaint;
         Paint mAmPmPaint;
         Paint mLinePaint;
+        Paint mMaxPaint;
+        Paint mMinPaint;
         Paint mColonPaint;
+        Bitmap mWeatherImageBitmap;
         float mColonWidth;
         boolean mMute;
 
@@ -199,9 +194,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onCreate(SurfaceHolder holder) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onCreate");
-//            }
+            Log.d(TAG, "onCreate");
+
             super.onCreate(holder);
 
             setWatchFaceStyle(new WatchFaceStyle.Builder(SunshineWatchFaceService.this)
@@ -216,25 +210,22 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             mPmString = resources.getString(R.string.digital_pm);
 
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(
-                    ContextCompat.getColor(getApplicationContext(), R.color.color_background));
-            mDatePaint = createTextPaint(
-                    ContextCompat.getColor(getApplicationContext(), R.color.color_text_secondary));
+            mBackgroundPaint.setColor(ContextCompat.getColor(getApplicationContext(), R.color.color_background));
+            mDatePaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.color_text_secondary));
             mHourPaint = createTextPaint(mInteractiveHourDigitsColor, NORMAL_TYPEFACE);
+            mColonPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_colons));
             mMinutePaint = createTextPaint(mInteractiveMinuteDigitsColor);
             mSecondPaint = createTextPaint(mInteractiveSecondDigitsColor);
-            mAmPmPaint = createTextPaint(
-                    ContextCompat.getColor(getApplicationContext(), R.color.digital_am_pm));
+            mAmPmPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.digital_am_pm));
             mLinePaint = createLinePaint(R.color.secondary_text_light);
-            mColonPaint = createTextPaint(
-                    ContextCompat.getColor(getApplicationContext(), R.color.digital_colons));
+            mMaxPaint = createTextPaint(mInteractiveHourDigitsColor, NORMAL_TYPEFACE);
+            mMinPaint = createTextPaint(ContextCompat.getColor(getApplicationContext(), R.color.color_text_secondary));
+
+            mWeatherImageBitmap = getBitmap(SunshineWatchFaceService.this, R.drawable.ic_clean);
 
             mCalendar = Calendar.getInstance();
             mDate = new Date();
             initFormats();
-
-//            Intent serviceIntent = new Intent(SunshineWatchFaceService.this, SunshineWatchFaceService.class);
-//            startService(serviceIntent);
         }
 
         private Paint createLinePaint(int defaultInteractiveColor) {
@@ -271,7 +262,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             super.onVisibilityChanged(visible);
 
             if (visible) {
-                mGoogleApiClient.connect();
+                //mGoogleApiClient.connect();
 
                 registerReceiver();
 
@@ -281,10 +272,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             } else {
                 unregisterReceiver();
 
-                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
-                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
-                    mGoogleApiClient.disconnect();
-                }
+//                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+//                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
+//                    mGoogleApiClient.disconnect();
+//                }
             }
 
             // Whether the timer should be running depends on whether we're visible (as well as
@@ -334,12 +325,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             float amPmSize = resources.getDimension(isRound
                     ? R.dimen.digital_am_pm_size_round : R.dimen.digital_am_pm_size);
 
-            mDatePaint.setTextSize(resources.getDimension(R.dimen.digital_date_text_size));
             mHourPaint.setTextSize(textSize);
+            mColonPaint.setTextSize(textSize);
             mMinutePaint.setTextSize(textSize);
             mSecondPaint.setTextSize(textSize);
             mAmPmPaint.setTextSize(amPmSize);
-            mColonPaint.setTextSize(textSize);
+            mDatePaint.setTextSize(resources.getDimension(R.dimen.digital_date_text_size));
+            mMaxPaint.setTextSize(resources.getDimension(R.dimen.digital_max_min_text_size));
+            mMinPaint.setTextSize(resources.getDimension(R.dimen.digital_max_min_text_size));
 
             mColonWidth = mColonPaint.measureText(COLON_STRING);
         }
@@ -354,27 +347,23 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             mLowBitAmbient = properties.getBoolean(PROPERTY_LOW_BIT_AMBIENT, false);
 
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onPropertiesChanged: burn-in protection = " + burnInProtection
-//                        + ", low-bit ambient = " + mLowBitAmbient);
-//            }
+            Log.d(TAG, "onPropertiesChanged: burn-in protection = " + burnInProtection
+                    + ", low-bit ambient = " + mLowBitAmbient);
         }
 
         @Override
         public void onTimeTick() {
             super.onTimeTick();
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onTimeTick: ambient = " + isInAmbientMode());
-//            }
+            Log.d(TAG, "onTimeTick: ambient = " + isInAmbientMode());
             invalidate();
         }
 
         @Override
         public void onAmbientModeChanged(boolean inAmbientMode) {
             super.onAmbientModeChanged(inAmbientMode);
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onAmbientModeChanged: " + inAmbientMode);
-//            }
+
+            Log.d(TAG, "onAmbientModeChanged: " + inAmbientMode);
+
             adjustPaintColorToCurrentMode(mBackgroundPaint, mInteractiveBackgroundColor,
                     SunshineWatchFaceUtil.COLOR_VALUE_DEFAULT_AND_AMBIENT_BACKGROUND);
             adjustPaintColorToCurrentMode(mHourPaint, mInteractiveHourDigitsColor,
@@ -409,9 +398,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onInterruptionFilterChanged(int interruptionFilter) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onInterruptionFilterChanged: " + interruptionFilter);
-//            }
+            Log.d(TAG, "onInterruptionFilterChanged: " + interruptionFilter);
+
             super.onInterruptionFilterChanged(interruptionFilter);
 
             boolean inMuteMode = interruptionFilter == WatchFaceService.INTERRUPTION_FILTER_NONE;
@@ -426,6 +414,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 mMinutePaint.setAlpha(alpha);
                 mColonPaint.setAlpha(alpha);
                 mLinePaint.setAlpha(alpha);
+                mMaxPaint.setAlpha(alpha);
                 mAmPmPaint.setAlpha(alpha);
                 invalidate();
             }
@@ -542,9 +531,24 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             // Line
             float centerXdateAlign = centerX - mXOffset * 1.6f / 2;
-            canvas.drawLine(centerXdateAlign, mYOffset * 1.7f, centerXdateAlign + mXOffset * 1.6f, mYOffset * 1.7f, mLinePaint);
+            canvas.drawLine(centerXdateAlign, mYOffset * 1.6f, centerXdateAlign + mXOffset * 1.6f, mYOffset * 1.6f, mLinePaint);
 
             // Max temp
+            float maxTempPosition = mYOffset * 2f;
+            canvas.drawText(
+                    "18˚",
+                    centerXdateAlign, maxTempPosition, mMaxPaint);
+
+            float measureMaxText = mMaxPaint.measureText("16˚");
+
+            // Min temp
+            canvas.drawText(
+                    " 16˚",
+                    centerXdateAlign + measureMaxText, mYOffset * 2f, mMinPaint);
+
+            // image
+            canvas.drawBitmap(mWeatherImageBitmap, centerXdateAlign - measureMaxText * 1.5f,
+                    maxTempPosition - mMaxPaint.getTextSize(), null);
         }
 
         /**
@@ -552,9 +556,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
          * or stops it if it shouldn't be running but currently is.
          */
         private void updateTimer() {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "updateTimer");
-//            }
+            Log.d(TAG, "updateTimer");
+
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
             if (shouldTimerBeRunning()) {
                 mUpdateTimeHandler.sendEmptyMessage(MSG_UPDATE_TIME);
@@ -569,21 +572,21 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             return isVisible() && !isInAmbientMode();
         }
 
-        private void updateConfigDataItemAndUiOnStartup() {
-            SunshineWatchFaceUtil.fetchConfigDataMap(mGoogleApiClient,
-                    new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
-                        @Override
-                        public void onConfigDataMapFetched(DataMap startupConfig) {
-                            // If the DataItem hasn't been created yet or some keys are missing,
-                            // use the default values.
-                            setDefaultValuesForMissingConfigKeys(startupConfig);
-                            SunshineWatchFaceUtil.putConfigDataItem(mGoogleApiClient, startupConfig);
-
-                            updateUiForConfigDataMap(startupConfig);
-                        }
-                    }
-            );
-        }
+//        private void updateConfigDataItemAndUiOnStartup() {
+//            SunshineWatchFaceUtil.fetchConfigDataMap(mGoogleApiClient,
+//                    new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
+//                        @Override
+//                        public void onConfigDataMapFetched(DataMap startupConfig) {
+//                            // If the DataItem hasn't been created yet or some keys are missing,
+//                            // use the default values.
+//                            setDefaultValuesForMissingConfigKeys(startupConfig);
+//                            SunshineWatchFaceUtil.putConfigDataItem(mGoogleApiClient, startupConfig);
+//
+//                            updateUiForConfigDataMap(startupConfig);
+//                        }
+//                    }
+//            );
+//        }
 
         private void setDefaultValuesForMissingConfigKeys(DataMap config) {
             addIntKeyIfMissing(config, SunshineWatchFaceUtil.KEY_BACKGROUND_COLOR,
@@ -666,7 +669,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             return true;
         }
 
-        @Override  // GoogleApiClient.ConnectionCallbacks
+       /* @Override  // GoogleApiClient.ConnectionCallbacks
         public void onConnected(Bundle connectionHint) {
 //            if (Log.isLoggable(TAG, Log.DEBUG)) {
 //                Log.d(TAG, "onConnected: " + connectionHint);
@@ -687,6 +690,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 //            if (Log.isLoggable(TAG, Log.DEBUG)) {
 //                Log.d(TAG, "onConnectionFailed: " + result);
 //            }
-        }
+        }*/
+    }
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    public static Bitmap getBitmap(Context context, int resourceId) {
+        Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_clean);
+
+        return Bitmap.createScaledBitmap(bitmap,
+                50, 50, true /* filter */);
     }
 }

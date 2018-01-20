@@ -99,6 +99,7 @@ public class SunshineWatchFaceUtil {
      */
     public static void fetchConfigDataMap(final GoogleApiClient client,
                                           final FetchConfigDataMapCallback callback) {
+
         Wearable.NodeApi.getLocalNode(client).setResultCallback(
                 new ResultCallback<NodeApi.GetLocalNodeResult>() {
                     @Override

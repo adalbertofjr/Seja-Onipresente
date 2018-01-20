@@ -16,6 +16,7 @@
     <dimen name="digital_text_size">35dp</dimen>
     <dimen name="digital_text_size_round">40dp</dimen>
     <dimen name="digital_date_text_size">18dp</dimen>
+    <dimen name="digital_max_min_text_size">22dp</dimen>
     <dimen name="digital_am_pm_size">20dp</dimen>
     <dimen name="digital_am_pm_size_round">25dp</dimen>
     <dimen name="digital_x_offset">15dp</dimen>
