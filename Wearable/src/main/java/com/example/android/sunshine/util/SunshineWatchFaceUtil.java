@@ -24,6 +24,13 @@ import com.google.android.gms.wearable.Wearable;
 public class SunshineWatchFaceUtil {
     private static String LOG_TAG = SunshineWatchFaceUtil.class.getSimpleName();
 
+    public static final String SUNSHINE_PATH = "/sunshine";
+    public static final String IMAGE_PATH = "/image";
+    public static final String MAX_KEY = "max";
+    public static final String MIN_KEY = "min";
+
+    public static final int DEFAULT_TEMP = -999;
+
     /**
      * The {@link DataMap} key for {@link SunshineWatchFaceService} background color name.
      * The color name must be a {@link String} recognized by {@link Color#parseColor}.
@@ -40,7 +47,7 @@ public class SunshineWatchFaceUtil {
      * The {@link DataMap} key for {@link SunshineWatchFaceService} minute digits color name.
      * The color name must be a {@link String} recognized by {@link Color#parseColor}.
      */
-    public static final String KEY_MINUTES_COLOR = "MINUTES_COLOR";
+//    public static final String KEY_MINUTES_COLOR = "MINUTES_COLOR";
 
     /**
      * The {@link DataMap} key for {@link SunshineWatchFaceService} second digits color name.
@@ -107,7 +114,7 @@ public class SunshineWatchFaceUtil {
                         String localNode = getLocalNodeResult.getNode().getId();
                         Uri uri = new Uri.Builder()
                                 .scheme("wear")
-                                .path(SunshineWatchFaceUtil.PATH_WITH_FEATURE)
+                                .path(SunshineWatchFaceUtil.SUNSHINE_PATH)
                                 .authority(localNode)
                                 .build();
                         Wearable.DataApi.getDataItem(client, uri)
@@ -134,7 +141,7 @@ public class SunshineWatchFaceUtil {
      * If the config DataItem doesn't exist, it's created.
      */
     public static void putConfigDataItem(GoogleApiClient googleApiClient, DataMap newConfig) {
-        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH_WITH_FEATURE);
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SunshineWatchFaceUtil.SUNSHINE_PATH);
         putDataMapRequest.setUrgent();
         DataMap configToPut = putDataMapRequest.getDataMap();
         configToPut.putAll(newConfig);
