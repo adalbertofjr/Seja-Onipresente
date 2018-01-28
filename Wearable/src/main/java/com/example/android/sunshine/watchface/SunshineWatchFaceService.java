@@ -219,7 +219,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
                     .setShowSystemUiTime(false)
                     .build());
+
             Resources resources = SunshineWatchFaceService.this.getResources();
+
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
             mLineHeight = resources.getDimension(R.dimen.digital_line_height);
             mAmString = resources.getString(R.string.digital_am);
@@ -272,9 +274,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onVisibilityChanged(boolean visible) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onVisibilityChanged: " + visible);
-//            }
+            Log.d(TAG, "onVisibilityChanged: " + visible);
             super.onVisibilityChanged(visible);
 
             if (visible) {
@@ -289,7 +289,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 unregisterReceiver();
 
                 if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
-                    Wearable.DataApi.removeListener(mGoogleApiClient, this);
+                    Wearable.getDataClient(getApplicationContext()).removeListener(this);
                     mGoogleApiClient.disconnect();
                 }
             }
@@ -326,9 +326,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override
         public void onApplyWindowInsets(WindowInsets insets) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onApplyWindowInsets: " + (insets.isRound() ? "round" : "square"));
-//            }
+            Log.d(TAG, "onApplyWindowInsets: " + (insets.isRound() ? "round" : "square"));
             super.onApplyWindowInsets(insets);
 
             // Load resources that have alternate values for round watches.
@@ -603,33 +601,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             return isVisible() && !isInAmbientMode();
         }
 
-//        private void updateConfigDataItemAndUiOnStartup() {
-//            SunshineWatchFaceUtil.fetchConfigDataMap(mGoogleApiClient,
-//                    new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
-//                        @Override
-//                        public void onConfigDataMapFetched(DataMap startupConfig) {
-//                            // If the DataItem hasn't been created yet or some keys are missing,
-//                            // use the default values.
-//                            setDefaultValuesForMissingConfigKeys(startupConfig);
-//                            SunshineWatchFaceUtil.putConfigDataItem(mGoogleApiClient, startupConfig);
-//
-//                            updateUiForConfigDataMap(startupConfig);
-//                        }
-//                    }
-//            );
-//        }
-
         private void setDefaultValuesForMissingConfigKeys(DataMap config) {
             addIntKeyIfMissing(config, SunshineWatchFaceUtil.MAX_KEY, SunshineWatchFaceUtil.DEFAULT_TEMP);
             addIntKeyIfMissing(config, SunshineWatchFaceUtil.MIN_KEY, SunshineWatchFaceUtil.DEFAULT_TEMP);
-           /* addIntKeyIfMissing(config, SunshineWatchFaceUtil.KEY_BACKGROUND_COLOR,
-                    SunshineWatchFaceUtil.COLOR_VALUE_DEFAULT_AND_AMBIENT_BACKGROUND);
-            addIntKeyIfMissing(config, SunshineWatchFaceUtil.KEY_HOURS_COLOR,
-                    SunshineWatchFaceUtil.COLOR_VALUE_DEFAULT_AND_AMBIENT_HOUR_DIGITS);
-            addIntKeyIfMissing(config, SunshineWatchFaceUtil.KEY_MINUTES_COLOR,
-                    SunshineWatchFaceUtil.COLOR_VALUE_DEFAULT_AND_AMBIENT_MINUTE_DIGITS);
-            addIntKeyIfMissing(config, SunshineWatchFaceUtil.KEY_SECONDS_COLOR,
-                    SunshineWatchFaceUtil.COLOR_VALUE_DEFAULT_AND_AMBIENT_SECOND_DIGITS);*/
         }
 
         private void addIntKeyIfMissing(DataMap config, String key, int temp) {
@@ -653,9 +627,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
                 DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
                 DataMap config = dataMapItem.getDataMap();
-//                if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                    Log.d(TAG, "Config DataItem updated:" + config);
-//                }
+                Log.d(TAG, "Config DataItem updated:" + config);
                 updateUiForConfigDataMap(config);
             }
         }
@@ -667,10 +639,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     continue;
                 }
                 int temp = config.getInt(configKey);
-//                if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                    Log.d(TAG, "Found watch face config key: " + configKey + " -> "
-//                            + Integer.toHexString(temp));
-//                }
+                Log.d(TAG, "Found watch face config key: " + configKey + " -> "
+                        + Integer.toHexString(temp));
                 if (updateUiForKey(configKey, temp)) {
                     uiUpdated = true;
                 }
@@ -697,25 +667,18 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         public void onConnected(@Nullable Bundle bundle) {
             Log.d(TAG, "onConnected: " + bundle);
             Wearable.getDataClient(getApplicationContext()).addListener(this);
-//            Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
             updateConfigDataItemAndUiOnStartup();
         }
 
         private void updateConfigDataItemAndUiOnStartup() {
-            SunshineWatchFaceUtil.fetchConfigDataMap(mGoogleApiClient,
-                    new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
-                        @Override
-                        public void onConfigDataMapFetched(DataMap startupConfig) {
-                            // If the DataItem hasn't been created yet or some keys are missing,
-                            // use the default values.
-                            //setDefaultValuesForMissingConfigKeys(startupConfig);
+            SunshineWatchFaceUtil.fetConfigDataMap(getApplicationContext(), new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
+                @Override
+                public void onConfigDataMapFetched(DataMap startupConfig) {
+                    //setDefaultValuesForMissingConfigKeys(startupConfig);
 
-                            //SunshineWatchFaceUtil.putConfigDataItem(mGoogleApiClient, startupConfig);
-
-                            updateUiForConfigDataMap(startupConfig);
-                        }
-                    }
-            );
+                    updateUiForConfigDataMap(startupConfig);
+                }
+            });
         }
 
         @Override
@@ -736,28 +699,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             this.minTemp = minTemp;
         }
 
-       /* @Override  // GoogleApiClient.ConnectionCallbacks
-        public void onConnected(Bundle connectionHint) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onConnected: " + connectionHint);
-//            }
-            Wearable.DataApi.addListener(mGoogleApiClient, Engine.this);
-            updateConfigDataItemAndUiOnStartup();
-        }
-
-        @Override  // GoogleApiClient.ConnectionCallbacks
-        public void onConnectionSuspended(int cause) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onConnectionSuspended: " + cause);
-//            }
-        }
-
-        @Override  // GoogleApiClient.OnConnectionFailedListener
-        public void onConnectionFailed(ConnectionResult result) {
-//            if (Log.isLoggable(TAG, Log.DEBUG)) {
-//                Log.d(TAG, "onConnectionFailed: " + result);
-//            }
-        }*/
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)

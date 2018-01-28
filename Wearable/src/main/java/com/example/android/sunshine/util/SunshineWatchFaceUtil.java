@@ -1,19 +1,20 @@
 package com.example.android.sunshine.util;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.net.Uri;
-import android.util.Log;
 
 import com.example.android.sunshine.watchface.SunshineWatchFaceService;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
-import com.google.android.gms.wearable.NodeApi;
-import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.Node;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
+
+import java.util.List;
 
 /**
  * SunshineWatchFaceUtil
@@ -97,31 +98,40 @@ public class SunshineWatchFaceUtil {
         return Color.parseColor(colorName.toLowerCase());
     }
 
-    /**
-     * Asynchronously fetches the current config {@link DataMap} for {@link SunshineWatchFaceService}
-     * and passes it to the given callback.
-     * <p>
-     * If the current config {@link DataItem} doesn't exist, it isn't created and the callback
-     * receives an empty DataMap.
-     */
-    public static void fetchConfigDataMap(final GoogleApiClient client,
-                                          final FetchConfigDataMapCallback callback) {
 
-        Wearable.NodeApi.getLocalNode(client).setResultCallback(
-                new ResultCallback<NodeApi.GetLocalNodeResult>() {
-                    @Override
-                    public void onResult(NodeApi.GetLocalNodeResult getLocalNodeResult) {
-                        String localNode = getLocalNodeResult.getNode().getId();
-                        Uri uri = new Uri.Builder()
-                                .scheme("wear")
-                                .path(SunshineWatchFaceUtil.SUNSHINE_PATH)
-                                .authority(localNode)
-                                .build();
-                        Wearable.DataApi.getDataItem(client, uri)
-                                .setResultCallback(new DataItemResultCallback(callback));
-                    }
+    public static void fetConfigDataMap(final Context context, final FetchConfigDataMapCallback callback) {
+        Task<List<Node>> connectedNodes = Wearable.getNodeClient(context).getConnectedNodes();
+
+        connectedNodes.addOnSuccessListener(new OnSuccessListener<List<Node>>() {
+            @Override
+            public void onSuccess(List<Node> nodesList) {
+                for (Node node : nodesList) {
+                    Uri uri = new Uri.Builder()
+                            .scheme(PutDataRequest.WEAR_URI_SCHEME)
+                            .path(SunshineWatchFaceUtil.SUNSHINE_PATH)
+                            .authority(node.getId()) //id which has sent data
+                            .build();
+
+                    Task<DataItem> dataItem = Wearable.getDataClient(context).getDataItem(uri);
+
+                    dataItem.addOnSuccessListener(new OnSuccessListener<DataItem>() {
+                        @Override
+                        public void onSuccess(DataItem dataItem) {
+                            if (dataItem != null) {
+                                DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
+                                DataMap dataMap = dataMapItem.getDataMap();
+
+                                if (dataMap.size() > 0) {
+                                    callback.onConfigDataMapFetched(dataMap);
+                                }
+                            }
+                        }
+                    });
                 }
-        );
+
+            }
+        });
+
     }
 
     /**
@@ -134,48 +144,5 @@ public class SunshineWatchFaceUtil {
          * {@link SunshineWatchFaceService}.
          */
         void onConfigDataMapFetched(DataMap config);
-    }
-
-    /**
-     * Overwrites the current config {@link DataItem}'s {@link DataMap} with {@code newConfig}.
-     * If the config DataItem doesn't exist, it's created.
-     */
-    public static void putConfigDataItem(GoogleApiClient googleApiClient, DataMap newConfig) {
-        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SunshineWatchFaceUtil.SUNSHINE_PATH);
-        putDataMapRequest.setUrgent();
-        DataMap configToPut = putDataMapRequest.getDataMap();
-        configToPut.putAll(newConfig);
-        Wearable.DataApi.putDataItem(googleApiClient, putDataMapRequest.asPutDataRequest())
-                .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-                    @Override
-                    public void onResult(DataApi.DataItemResult dataItemResult) {
-                        if (Log.isLoggable(LOG_TAG, Log.DEBUG)) {
-                            Log.d(LOG_TAG, "putDataItem result status: " + dataItemResult.getStatus());
-                        }
-                    }
-                });
-    }
-
-    private static class DataItemResultCallback implements ResultCallback<DataApi.DataItemResult> {
-
-        private final FetchConfigDataMapCallback mCallback;
-
-        public DataItemResultCallback(FetchConfigDataMapCallback callback) {
-            mCallback = callback;
-        }
-
-        @Override
-        public void onResult(DataApi.DataItemResult dataItemResult) {
-            if (dataItemResult.getStatus().isSuccess()) {
-                if (dataItemResult.getDataItem() != null) {
-                    DataItem configDataItem = dataItemResult.getDataItem();
-                    DataMapItem dataMapItem = DataMapItem.fromDataItem(configDataItem);
-                    DataMap config = dataMapItem.getDataMap();
-                    mCallback.onConfigDataMapFetched(config);
-                } else {
-                    mCallback.onConfigDataMapFetched(new DataMap());
-                }
-            }
-        }
     }
 }
