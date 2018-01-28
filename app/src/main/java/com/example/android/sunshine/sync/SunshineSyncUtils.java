@@ -29,6 +29,11 @@ import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.firebase.jobdispatcher.Job;
 import com.firebase.jobdispatcher.Lifetime;
 import com.firebase.jobdispatcher.Trigger;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
 import java.util.concurrent.TimeUnit;
 
@@ -188,5 +193,22 @@ public class SunshineSyncUtils {
     public static void startImmediateSync(@NonNull final Context context) {
         Intent intentToSyncImmediately = new Intent(context, SunshineSyncIntentService.class);
         context.startService(intentToSyncImmediately);
+    }
+
+    private static final String SUNSHINE_PATH = "/sunshine";
+    private static final String IMAGE_PATH = "/image";
+    private static final String MAX_KEY = "max";
+    private static final String MIN_KEY = "min";
+
+    public static void sendDataToWearDevice(Context context, double high, double low) {
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SUNSHINE_PATH);
+        putDataMapRequest.getDataMap().putInt(MAX_KEY, (int) high);
+        putDataMapRequest.getDataMap().putInt(MIN_KEY, (int) low);
+
+        PutDataRequest request = putDataMapRequest.asPutDataRequest();
+        request.setUrgent();
+
+        Task<DataItem> dataItemTask =
+                Wearable.getDataClient(context).putDataItem(request);
     }
 }
