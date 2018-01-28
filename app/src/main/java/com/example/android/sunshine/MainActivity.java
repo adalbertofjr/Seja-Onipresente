@@ -35,15 +35,10 @@ import android.widget.ProgressBar;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.data.WeatherContract;
 import com.example.android.sunshine.sync.SunshineSyncUtils;
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.wearable.DataItem;
-import com.google.android.gms.wearable.PutDataMapRequest;
-import com.google.android.gms.wearable.PutDataRequest;
-import com.google.android.gms.wearable.Wearable;
 
 public class MainActivity extends AppCompatActivity implements
         LoaderManager.LoaderCallbacks<Cursor>,
-        ForecastAdapter.ForecastAdapterOnClickHandler{
+        ForecastAdapter.ForecastAdapterOnClickHandler {
 
     private final String TAG = MainActivity.class.getSimpleName();
 
@@ -283,8 +278,6 @@ public class MainActivity extends AppCompatActivity implements
         Uri uriForDateClicked = WeatherContract.WeatherEntry.buildWeatherUriWithDate(date);
         weatherDetailIntent.setData(uriForDateClicked);
         startActivity(weatherDetailIntent);
-
-        sendData();
     }
 
     /**
@@ -356,25 +349,4 @@ public class MainActivity extends AppCompatActivity implements
 
         return super.onOptionsItemSelected(item);
     }
-
-
-    private static final String SUNSHINE_PATH = "/sunshine";
-    private static final String IMAGE_PATH = "/image";
-    private static final String MAX_KEY = "max";
-    private static final String MIN_KEY = "min";
-
-    public void sendData() {
-        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SUNSHINE_PATH);
-        putDataMapRequest.getDataMap().putInt(MAX_KEY, 25);
-        putDataMapRequest.getDataMap().putInt(MIN_KEY, 16);
-
-        PutDataRequest request = putDataMapRequest.asPutDataRequest();
-        request.setUrgent();
-
-        Log.i(TAG, "Generating DataItem: " + request);
-
-        Task<DataItem> dataItemTask =
-                Wearable.getDataClient(getApplicationContext()).putDataItem(request);
-    }
-
 }
