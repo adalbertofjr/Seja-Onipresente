@@ -29,6 +29,7 @@ public class SunshineWatchFaceUtil {
     public static final String IMAGE_PATH = "/image";
     public static final String MAX_KEY = "max";
     public static final String MIN_KEY = "min";
+    public static final String IMAGE_KEY = "image";
 
     public static final int DEFAULT_TEMP = -999;
 
@@ -109,6 +110,41 @@ public class SunshineWatchFaceUtil {
                     Uri uri = new Uri.Builder()
                             .scheme(PutDataRequest.WEAR_URI_SCHEME)
                             .path(SunshineWatchFaceUtil.SUNSHINE_PATH)
+                            .authority(node.getId()) //id which has sent data
+                            .build();
+
+                    Task<DataItem> dataItem = Wearable.getDataClient(context).getDataItem(uri);
+
+                    dataItem.addOnSuccessListener(new OnSuccessListener<DataItem>() {
+                        @Override
+                        public void onSuccess(DataItem dataItem) {
+                            if (dataItem != null) {
+                                DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
+                                DataMap dataMap = dataMapItem.getDataMap();
+
+                                if (dataMap.size() > 0) {
+                                    callback.onConfigDataMapFetched(dataMap);
+                                }
+                            }
+                        }
+                    });
+                }
+
+            }
+        });
+    }
+
+    public static void fetConfigImageMap(final Context context, final FetchConfigDataMapCallback callback) {
+        Task<List<Node>> connectedNodes = Wearable.getNodeClient(context).getConnectedNodes();
+
+
+        connectedNodes.addOnSuccessListener(new OnSuccessListener<List<Node>>() {
+            @Override
+            public void onSuccess(List<Node> nodesList) {
+                for (Node node : nodesList) {
+                    Uri uri = new Uri.Builder()
+                            .scheme(PutDataRequest.WEAR_URI_SCHEME)
+                            .path(SunshineWatchFaceUtil.IMAGE_PATH)
                             .authority(node.getId()) //id which has sent data
                             .build();
 

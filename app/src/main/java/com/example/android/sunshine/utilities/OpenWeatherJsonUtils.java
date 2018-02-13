@@ -183,6 +183,7 @@ public final class OpenWeatherJsonUtils {
             String todayText = context.getString(R.string.today);
             if (dateString.contains(todayText)) {
                 SunshineSyncUtils.sendDataToWearDevice(context, high, low);
+                SunshineSyncUtils.sendWeatherAsset(context, weatherId);
             }
         }
 

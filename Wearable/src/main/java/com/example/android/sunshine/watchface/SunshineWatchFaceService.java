@@ -28,6 +28,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -47,6 +48,9 @@ import com.example.android.sunshine.R;
 import com.example.android.sunshine.util.SunshineWatchFaceUtil;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataClient;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
@@ -55,11 +59,13 @@ import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 
@@ -632,16 +638,16 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
         }
 
-        private void updateUiForConfigDataMap(final DataMap config) {
+        private void updateUiForConfigDataMap(final DataMap dataMap) {
             boolean uiUpdated = false;
-            for (String configKey : config.keySet()) {
-                if (!config.containsKey(configKey)) {
+            for (String configKey : dataMap.keySet()) {
+                if (!dataMap.containsKey(configKey)) {
                     continue;
                 }
-                int temp = config.getInt(configKey);
-                Log.d(TAG, "Found watch face config key: " + configKey + " -> "
+                int temp = dataMap.getInt(configKey);
+                Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
                         + Integer.toHexString(temp));
-                if (updateUiForKey(configKey, temp)) {
+                if (updateUiForKey(dataMap, configKey, temp)) {
                     uiUpdated = true;
                 }
             }
@@ -650,11 +656,15 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
         }
 
-        private boolean updateUiForKey(String configKey, int temp) {
+        private boolean updateUiForKey(DataMap dataMap, String configKey, int temp) {
             if (configKey.equals(SunshineWatchFaceUtil.MAX_KEY)) {
                 setMaxTemp(temp);
             } else if (configKey.equals(SunshineWatchFaceUtil.MIN_KEY)) {
                 setMinTemp(temp);
+            } else if (configKey.equals(SunshineWatchFaceUtil.IMAGE_KEY)) {
+                Asset photoAsset = dataMap.getAsset(SunshineWatchFaceUtil.IMAGE_KEY);
+                // Loads image on background thread.
+                new LoadBitmapAsyncTask().execute(photoAsset);
             } else {
                 Log.w(TAG, "Ignoring unknown config key: " + configKey);
                 return false;
@@ -679,6 +689,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     updateUiForConfigDataMap(startupConfig);
                 }
             });
+
+            SunshineWatchFaceUtil.fetConfigImageMap(getApplicationContext(), new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
+                @Override
+                public void onConfigDataMapFetched(DataMap startupConfig) {
+                    //setDefaultValuesForMissingConfigKeys(startupConfig);
+                    updateUiForConfigDataMap(startupConfig);
+                }
+            });
         }
 
         @Override
@@ -699,13 +717,77 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             this.minTemp = minTemp;
         }
 
+        public void setWeatherImageBitmap(Bitmap bitmap) {
+            this.mWeatherImageBitmap = bitmap;
+        }
+
+        @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+        private Bitmap getBitmap(Context context, int resourceId) {
+            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_clean);
+
+            return Bitmap.createScaledBitmap(bitmap,
+                    50, 50, true /* filter */);
+        }
+
+        /*
+         * Extracts {@link android.graphics.Bitmap} data from the
+         * {@link com.google.android.gms.wearable.Asset}
+         */
+        private class LoadBitmapAsyncTask extends AsyncTask<Asset, Void, Bitmap> {
+
+            @Override
+            protected Bitmap doInBackground(Asset... params) {
+
+                if (params.length > 0) {
+
+                    Asset asset = params[0];
+
+                    Task<DataClient.GetFdForAssetResponse> getFdForAssetResponseTask =
+                            Wearable.getDataClient(getApplicationContext()).getFdForAsset(asset);
+
+                    try {
+                        // Block on a task and get the result synchronously. This is generally done
+                        // when executing a task inside a separately managed background thread. Doing
+                        // this on the main (UI) thread can cause your application to become
+                        // unresponsive.
+                        DataClient.GetFdForAssetResponse getFdForAssetResponse =
+                                Tasks.await(getFdForAssetResponseTask);
+
+                        InputStream assetInputStream = getFdForAssetResponse.getInputStream();
+
+                        if (assetInputStream != null) {
+                            return BitmapFactory.decodeStream(assetInputStream);
+
+                        } else {
+                            Log.w(TAG, "Requested an unknown Asset.");
+                            return null;
+                        }
+
+                    } catch (ExecutionException exception) {
+                        Log.e(TAG, "Failed retrieving asset, Task failed: " + exception);
+                        return null;
+
+                    } catch (InterruptedException exception) {
+                        Log.e(TAG, "Failed retrieving asset, interrupt occurred: " + exception);
+                        return null;
+                    }
+
+                } else {
+                    Log.e(TAG, "Asset must be non-null");
+                    return null;
+                }
+            }
+
+            @Override
+            protected void onPostExecute(Bitmap bitmap) {
+
+                if (bitmap != null) {
+                    Log.d(TAG, "Setting background image on second page..");
+                    setWeatherImageBitmap(bitmap);
+                }
+            }
+        }
+
     }
 
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public static Bitmap getBitmap(Context context, int resourceId) {
-        Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_clean);
-
-        return Bitmap.createScaledBitmap(bitmap,
-                50, 50, true /* filter */);
-    }
 }
