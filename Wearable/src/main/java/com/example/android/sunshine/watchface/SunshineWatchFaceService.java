@@ -627,7 +627,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
                 DataItem dataItem = dataEvent.getDataItem();
                 if (!dataItem.getUri().getPath().equals(
-                        SunshineWatchFaceUtil.SUNSHINE_PATH)) {
+                        SunshineWatchFaceUtil.SUNSHINE_PATH) ||
+                        !dataItem.getUri().getPath().equals(
+                                SunshineWatchFaceUtil.IMAGE_PATH)) {
                     continue;
                 }
 
@@ -644,10 +646,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 if (!dataMap.containsKey(configKey)) {
                     continue;
                 }
-                int temp = dataMap.getInt(configKey);
-                Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
-                        + Integer.toHexString(temp));
-                if (updateUiForKey(dataMap, configKey, temp)) {
+//                int temp = dataMap.getInt(configKey);
+//                Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
+//                        + Integer.toHexString(temp));
+                if (updateUiForKey(dataMap, configKey)) {
                     uiUpdated = true;
                 }
             }
@@ -656,14 +658,22 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
         }
 
-        private boolean updateUiForKey(DataMap dataMap, String configKey, int temp) {
+        private boolean updateUiForKey(DataMap dataMap, String configKey) {
             if (configKey.equals(SunshineWatchFaceUtil.MAX_KEY)) {
-                setMaxTemp(temp);
+                int maxTemp = dataMap.getInt(configKey);
+                setMaxTemp(maxTemp);
+
+                Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
+                        + Integer.toHexString(maxTemp));
             } else if (configKey.equals(SunshineWatchFaceUtil.MIN_KEY)) {
-                setMinTemp(temp);
+                int minTemp = dataMap.getInt(configKey);
+                setMinTemp(minTemp);
+
+                Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
+                        + Integer.toHexString(minTemp));
             } else if (configKey.equals(SunshineWatchFaceUtil.IMAGE_KEY)) {
-                Asset photoAsset = dataMap.getAsset(SunshineWatchFaceUtil.IMAGE_KEY);
                 // Loads image on background thread.
+                Asset photoAsset = dataMap.getAsset(SunshineWatchFaceUtil.IMAGE_KEY);
                 new LoadBitmapAsyncTask().execute(photoAsset);
             } else {
                 Log.w(TAG, "Ignoring unknown config key: " + configKey);
