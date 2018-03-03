@@ -13,16 +13,16 @@ import java.util.concurrent.TimeUnit;
 /**
  * SunshineDataLayerListenerService
  * Created by Adalberto Fernandes Júnior on 20/01/2018.
- * Copyright © 2016. All rights reserved.
+ * Copyright © 2018. All rights reserved.
  */
 
 public class SunshineDataLayerListenerService extends WearableListenerService {
     private String LOG_TAG = SunshineDataLayerListenerService.class.getSimpleName();
 
-    private static final String SUNSHINE_PATH = "/sunshine";
-    private static final String IMAGE_PATH = "/image";
-    private static final String MAX_KEY = "max";
-    private static final String MIN_KEY = "min";
+//    private static final String SUNSHINE_PATH = "/sunshine";
+//    private static final String IMAGE_PATH = "/image";
+//    private static final String MAX_KEY = "max";
+//    private static final String MIN_KEY = "min";
 
     private GoogleApiClient mGoogleApiClient;
 
