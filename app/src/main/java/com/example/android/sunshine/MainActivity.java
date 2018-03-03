@@ -266,6 +266,8 @@ public class MainActivity extends AppCompatActivity implements
         mForecastAdapter.swapCursor(null);
     }
 
+    int cont = 0;
+
     /**
      * This method is for responding to clicks from our list.
      *

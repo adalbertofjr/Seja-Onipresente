@@ -216,8 +216,8 @@ public class SunshineSyncUtils {
 
     public static void sendDataToWearDevice(Context context, double high, double low) {
         PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SUNSHINE_PATH);
-        putDataMapRequest.getDataMap().putInt(MAX_KEY, (int) high);
-        putDataMapRequest.getDataMap().putInt(MIN_KEY, (int) low);
+        putDataMapRequest.getDataMap().putString(MAX_KEY, SunshineWeatherUtils.formatTemperature(context, high));
+        putDataMapRequest.getDataMap().putString(MIN_KEY, SunshineWeatherUtils.formatTemperature(context, low));
 
         PutDataRequest request = putDataMapRequest.asPutDataRequest();
         request.setUrgent();

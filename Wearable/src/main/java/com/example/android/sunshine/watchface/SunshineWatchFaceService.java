@@ -16,7 +16,6 @@
 
 package com.example.android.sunshine.watchface;
 
-import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -29,7 +28,6 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -39,6 +37,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -215,8 +214,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
          * disable anti-aliasing in ambient mode.
          */
         boolean mLowBitAmbient;
-        private int maxTemp;
-        private int minTemp;
+        private String maxTemp;
+        private String minTemp;
         private boolean mAmbientMode;
 
         @Override
@@ -300,7 +299,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 unregisterReceiver();
 
                 if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
-                    Wearable.getDataClient(getApplicationContext()).removeListener(this);
+                    Wearable.getDataClient(SunshineWatchFaceService.this).removeListener(this);
                     mGoogleApiClient.disconnect();
                 }
             }
@@ -316,6 +315,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         }
 
         private void registerReceiver() {
+            Log.d(TAG, "registerReceiver");
             if (mRegisteredReceiver) {
                 return;
             }
@@ -326,6 +326,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         }
 
         private void unregisterReceiver() {
+            Log.d(TAG, "unregisterReceiver");
             if (!mRegisteredReceiver) {
                 return;
             }
@@ -538,27 +539,29 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             canvas.drawLine(centerXdateAlign, mYOffset * 1.6f, centerXdateAlign + mXOffset * 1.6f, mYOffset * 1.6f, mLinePaint);
 
             // Max temp
-            String maxTemp = "";
-            maxTemp = String.valueOf(this.maxTemp + "˚");
-
-            float maxTempPosition = mYOffset * 2f;
-            canvas.drawText(
-                    maxTemp,
-                    centerXdateAlign, maxTempPosition, mMaxPaint);
+            float maxTempPosition = 0;
+            String maxTemp = this.maxTemp != null ? this.maxTemp : "";
+            if (!TextUtils.isEmpty(maxTemp)) {
+                maxTempPosition = mYOffset * 2f;
+                canvas.drawText(
+                        maxTemp,
+                        centerXdateAlign, maxTempPosition, mMaxPaint);
+            }
 
             float measureMaxText = mMaxPaint.measureText(maxTemp);
 
             // Min temp
-            String minTemp = "";
-            minTemp = String.valueOf(" " + this.minTemp + "˚");
+            String minTemp = this.minTemp != null ? " " + this.minTemp : " ";
+            if (!TextUtils.isEmpty(minTemp)) {
+                canvas.drawText(
+                        minTemp,
+                        centerXdateAlign + measureMaxText, mYOffset * 2f, mMinPaint);
+            }
 
-            canvas.drawText(
-                    minTemp,
-                    centerXdateAlign + measureMaxText, mYOffset * 2f, mMinPaint);
-
+            float measureDistImgToText = mMaxPaint.measureText("00˚");
             // image
             if (!mAmbientMode && mWeatherImageBitmap != null) {
-                canvas.drawBitmap(mWeatherImageBitmap, centerXdateAlign - measureMaxText * 1.5f,
+                canvas.drawBitmap(mWeatherImageBitmap, centerXdateAlign - measureDistImgToText * 1.5f,
                         maxTempPosition - mMaxPaint.getTextSize(), null);
             }
         }
@@ -587,23 +590,29 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         @Override // DataApi.DataListener
         public void onDataChanged(DataEventBuffer dataEvents) {
+            Log.d(TAG, "onDataChanged(): " + dataEvents);
             for (DataEvent dataEvent : dataEvents) {
-                if (dataEvent.getType() != DataEvent.TYPE_CHANGED) {
-                    continue;
-                }
+                if (dataEvent.getType() == DataEvent.TYPE_CHANGED) {
+                    String path = dataEvent.getDataItem().getUri().getPath();
+                    if (SunshineWatchFaceUtil.IMAGE_PATH.equals(path)) {
+                        DataMapItem dataMapItem = DataMapItem.fromDataItem(dataEvent.getDataItem());
+                        Asset photoAsset = dataMapItem.getDataMap()
+                                .getAsset(SunshineWatchFaceUtil.IMAGE_KEY);
+                        // Loads image .
+                        new LoadBitmapAsyncTask().execute(photoAsset);
 
-                DataItem dataItem = dataEvent.getDataItem();
-                if (!dataItem.getUri().getPath().equals(
-                        SunshineWatchFaceUtil.SUNSHINE_PATH) ||
-                        !dataItem.getUri().getPath().equals(
-                                SunshineWatchFaceUtil.IMAGE_PATH)) {
-                    continue;
-                }
+                    } else if (SunshineWatchFaceUtil.SUNSHINE_PATH.equals(path)) {
+                        Log.d(TAG, "Data Changed for COUNT_PATH");
+                        DataItem dataItem = dataEvent.getDataItem();
+                        DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
+                        DataMap config = dataMapItem.getDataMap();
+                        updateUiForConfigDataMap(config);
+                        Log.d(TAG, "Config DataItem updated:" + config);
+                    } else {
+                        Log.d(TAG, "Unrecognized path: " + path);
+                    }
 
-                DataMapItem dataMapItem = DataMapItem.fromDataItem(dataItem);
-                DataMap config = dataMapItem.getDataMap();
-                Log.d(TAG, "Config DataItem updated:" + config);
-                updateUiForConfigDataMap(config);
+                }
             }
         }
 
@@ -613,9 +622,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 if (!dataMap.containsKey(configKey)) {
                     continue;
                 }
-//                int temp = dataMap.getInt(configKey);
-//                Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
-//                        + Integer.toHexString(temp));
+
                 if (updateUiForKey(dataMap, configKey)) {
                     uiUpdated = true;
                 }
@@ -627,17 +634,17 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         private boolean updateUiForKey(DataMap dataMap, String configKey) {
             if (configKey.equals(SunshineWatchFaceUtil.MAX_KEY)) {
-                int maxTemp = dataMap.getInt(configKey);
+                String maxTemp = dataMap.getString(configKey);
                 setMaxTemp(maxTemp);
 
                 Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
-                        + Integer.toHexString(maxTemp));
+                        + maxTemp);
             } else if (configKey.equals(SunshineWatchFaceUtil.MIN_KEY)) {
-                int minTemp = dataMap.getInt(configKey);
+                String minTemp = dataMap.getString(configKey);
                 setMinTemp(minTemp);
 
                 Log.d(TAG, "Found watch face dataMap key: " + configKey + " -> "
-                        + Integer.toHexString(minTemp));
+                        + minTemp);
             } else if (configKey.equals(SunshineWatchFaceUtil.IMAGE_KEY)) {
                 // Loads image on background thread.
                 Asset photoAsset = dataMap.getAsset(SunshineWatchFaceUtil.IMAGE_KEY);
@@ -653,7 +660,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onConnected(@Nullable Bundle bundle) {
             Log.d(TAG, "onConnected: " + bundle);
-            Wearable.getDataClient(getApplicationContext()).addListener(this);
+
+            Wearable.getDataClient(SunshineWatchFaceService.this).addListener(this);
             updateConfigDataItemAndUiOnStartup();
         }
 
@@ -661,8 +669,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             SunshineWatchFaceUtil.fetConfigDataMap(getApplicationContext(), new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
                 @Override
                 public void onConfigDataMapFetched(DataMap startupConfig) {
-                    //setDefaultValuesForMissingConfigKeys(startupConfig);
-
                     updateUiForConfigDataMap(startupConfig);
                 }
             });
@@ -670,7 +676,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             SunshineWatchFaceUtil.fetConfigImageMap(getApplicationContext(), new SunshineWatchFaceUtil.FetchConfigDataMapCallback() {
                 @Override
                 public void onConfigDataMapFetched(DataMap startupConfig) {
-                    //setDefaultValuesForMissingConfigKeys(startupConfig);
                     updateUiForConfigDataMap(startupConfig);
                 }
             });
@@ -686,24 +691,16 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
         }
 
-        public void setMaxTemp(int maxTemp) {
+        public void setMaxTemp(String maxTemp) {
             this.maxTemp = maxTemp;
         }
 
-        public void setMinTemp(int minTemp) {
+        public void setMinTemp(String minTemp) {
             this.minTemp = minTemp;
         }
 
         public void setWeatherImageBitmap(Bitmap bitmap) {
             this.mWeatherImageBitmap = bitmap;
-        }
-
-        @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-        private Bitmap getBitmap(Context context, int resourceId) {
-            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_clean);
-
-            return Bitmap.createScaledBitmap(bitmap,
-                    50, 50, true /* filter */);
         }
 
         /*
@@ -759,7 +756,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             protected void onPostExecute(Bitmap bitmap) {
 
                 if (bitmap != null) {
-                    Log.d(TAG, "Setting background image on second page..");
+                    Log.d(TAG, "Setting weather image");
                     setWeatherImageBitmap(bitmap);
                 }
             }
