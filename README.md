@@ -12,8 +12,8 @@ O Android Wear é uma forma excitante de tornar seu aplicativo parte integrante 
 * Estabelecer comunicação entre um dispositivo móvel e um de vestir.
 
 ## Imagens ##
-<img  src="https://raw.githubusercontent.com/adalbertofjr/Seja-Onipresente/master/app-images/preview_digital.png" width="203" height="339" />
-<img  src="https://raw.githubusercontent.com/adalbertofjr/Seja-Onipresente/master/app-images/preview_digital_circular.png" width="203" height="339" />
+<img  src="https://raw.githubusercontent.com/adalbertofjr/Seja-Onipresente/master/app-images/preview_digital.png" width="280" height="280" />
+<img  src="https://raw.githubusercontent.com/adalbertofjr/Seja-Onipresente/master/app-images/preview_digital_circular.png" width="280" height="280" />
 
 
 Copyright 2018 - Adalberto Fernandes Júnior.
