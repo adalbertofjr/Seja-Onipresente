@@ -18,8 +18,10 @@ package com.example.android.sunshine.utilities;
 import android.content.ContentValues;
 import android.content.Context;
 
+import com.example.android.sunshine.R;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.data.WeatherContract;
+import com.example.android.sunshine.sync.SunshineSyncUtils;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -69,9 +71,7 @@ public final class OpenWeatherJsonUtils {
      * now, we just convert the JSON into human-readable strings.
      *
      * @param forecastJsonStr JSON response from server
-     *
      * @return Array of Strings describing weather data
-     *
      * @throws JSONException If JSON data cannot be properly parsed
      */
     public static ContentValues[] getWeatherContentValuesFromJson(Context context, String forecastJsonStr)
@@ -177,6 +177,14 @@ public final class OpenWeatherJsonUtils {
             weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID, weatherId);
 
             weatherContentValues[i] = weatherValues;
+
+            // Sync with wearable device
+            String dateString = SunshineDateUtils.getFriendlyDateString(context, dateTimeMillis, false);
+            String todayText = context.getString(R.string.today);
+            if (dateString.contains(todayText)) {
+                SunshineSyncUtils.sendDataToWearDevice(context, high, low);
+                SunshineSyncUtils.sendWeatherAsset(context, weatherId);
+            }
         }
 
         return weatherContentValues;

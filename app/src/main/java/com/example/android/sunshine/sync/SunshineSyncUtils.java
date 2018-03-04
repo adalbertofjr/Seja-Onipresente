@@ -15,13 +15,19 @@
  */
 package com.example.android.sunshine.sync;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
 import android.support.annotation.NonNull;
+import android.util.Log;
 
 import com.example.android.sunshine.data.WeatherContract;
+import com.example.android.sunshine.utilities.SunshineWeatherUtils;
 import com.firebase.jobdispatcher.Constraint;
 import com.firebase.jobdispatcher.Driver;
 import com.firebase.jobdispatcher.FirebaseJobDispatcher;
@@ -29,7 +35,17 @@ import com.firebase.jobdispatcher.GooglePlayDriver;
 import com.firebase.jobdispatcher.Job;
 import com.firebase.jobdispatcher.Lifetime;
 import com.firebase.jobdispatcher.Trigger;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.wearable.Asset;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.PutDataMapRequest;
+import com.google.android.gms.wearable.PutDataRequest;
+import com.google.android.gms.wearable.Wearable;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 public class SunshineSyncUtils {
@@ -48,6 +64,7 @@ public class SunshineSyncUtils {
 
     /**
      * Schedules a repeating sync of Sunshine's weather data using FirebaseJobDispatcher.
+     *
      * @param context Context used to create the GooglePlayDriver that powers the
      *                FirebaseJobDispatcher
      */
@@ -99,6 +116,7 @@ public class SunshineSyncUtils {
         /* Schedule the Job with the dispatcher */
         dispatcher.schedule(syncSunshineJob);
     }
+
     /**
      * Creates periodic sync tasks and checks to see if an immediate sync is required. If an
      * immediate sync is required, this method will take care of making sure that sync occurs.
@@ -188,5 +206,87 @@ public class SunshineSyncUtils {
     public static void startImmediateSync(@NonNull final Context context) {
         Intent intentToSyncImmediately = new Intent(context, SunshineSyncIntentService.class);
         context.startService(intentToSyncImmediately);
+    }
+
+    private static final String SUNSHINE_PATH = "/sunshine";
+    private static final String IMAGE_PATH = "/image";
+    private static final String MAX_KEY = "max";
+    private static final String MIN_KEY = "min";
+    private static final String IMAGE_KEY = "image";
+
+    public static void sendDataToWearDevice(Context context, double high, double low) {
+        PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(SUNSHINE_PATH);
+        putDataMapRequest.getDataMap().putString(MAX_KEY, SunshineWeatherUtils.formatTemperature(context, high));
+        putDataMapRequest.getDataMap().putString(MIN_KEY, SunshineWeatherUtils.formatTemperature(context, low));
+
+        PutDataRequest request = putDataMapRequest.asPutDataRequest();
+        request.setUrgent();
+
+        Task<DataItem> dataItemTask =
+                Wearable.getDataClient(context).putDataItem(request);
+
+        dataItemTask.addOnSuccessListener(new OnSuccessListener<DataItem>() {
+            @Override
+            public void onSuccess(DataItem dataItem) {
+                Log.d(SUNSHINE_SYNC_TAG, "Sending data wear was successful: " + dataItem);
+            }
+        });
+    }
+
+    /**
+     * Sends the asset that was created from the photo we took by adding it to the Data Item store.
+     */
+    public static void sendWeatherAsset(Context context, int weatherId) {
+
+        int weatherImageId = SunshineWeatherUtils
+                .getSmallArtResourceIdForWeatherCondition(weatherId);
+
+        Bitmap imageBitmap = getBitmap(context, weatherImageId);
+
+        PutDataMapRequest dataMap = PutDataMapRequest.create(IMAGE_PATH);
+        dataMap.getDataMap().putAsset(IMAGE_KEY, toAsset(imageBitmap));
+        dataMap.getDataMap().putLong("time", new Date().getTime());
+        PutDataRequest request = dataMap.asPutDataRequest();
+        request.setUrgent();
+
+        Task<DataItem> dataItemTask = Wearable.getDataClient(context).putDataItem(request);
+
+        dataItemTask.addOnSuccessListener(new OnSuccessListener<DataItem>() {
+            @Override
+            public void onSuccess(DataItem dataItem) {
+                Log.d(SUNSHINE_SYNC_TAG, "Sending image wear was successful: " + dataItem);
+            }
+        });
+    }
+
+    /**
+     * Builds an {@link com.google.android.gms.wearable.Asset} from a bitmap. The image that we get
+     * back from the camera in "data" is a thumbnail size. Typically, your image should not exceed
+     * 320x320 and if you want to have zoom and parallax effect in your app, limit the size of your
+     * image to 640x400. Resize your image before transferring to your wearable device.
+     */
+    private static Asset toAsset(Bitmap bitmap) {
+        ByteArrayOutputStream byteStream = null;
+        try {
+            byteStream = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteStream);
+            return Asset.createFromBytes(byteStream.toByteArray());
+        } finally {
+            if (null != byteStream) {
+                try {
+                    byteStream.close();
+                } catch (IOException e) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    public static Bitmap getBitmap(Context context, int resourceId) {
+        Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), resourceId);
+
+        return Bitmap.createScaledBitmap(bitmap,
+                50, 50, true /* filter */);
     }
 }
